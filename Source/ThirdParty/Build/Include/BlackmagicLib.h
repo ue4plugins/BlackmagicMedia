@@ -147,6 +147,7 @@ namespace BlackmagicDesign
 		bool bOutputKey;
 		bool bOutputVideo;
 		bool bOutputInterlacedFieldsTimecodeNeedToMatch;
+		bool bLogDropFrames;
 	};
 
 	/* IInputEventCallback definition
@@ -158,6 +159,8 @@ namespace BlackmagicDesign
 			FFrameReceivedInfo();
 
 			bool bHasInputSource;
+
+			int64_t FrameNumber;
 
 			// Timecode
 			bool bHaveTimecode;

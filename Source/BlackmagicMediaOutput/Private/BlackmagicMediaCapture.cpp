@@ -112,12 +112,15 @@ namespace BlackmagicMediaCaptureHelpers
 					Owner->WakeUpEvent->Trigger();
 				}
 
-				const uint32 FrameDropCount = InFrameInfo.FramesDropped;
-				if (FrameDropCount > LastFramesDroppedCount)
+				if (Owner->bLogDropFrame)
 				{
-					UE_LOG(LogBlackmagicMediaOutput, Warning, TEXT("Lost %d frames on Blackmagic device %d. Frame rate may be too slow."), FrameDropCount - LastFramesDroppedCount, ChannelInfo.DeviceIndex);
+					const uint32 FrameDropCount = InFrameInfo.FramesDropped;
+					if (FrameDropCount > LastFramesDroppedCount)
+					{
+						UE_LOG(LogBlackmagicMediaOutput, Warning, TEXT("Lost %d frames on Blackmagic device %d. Frame rate may be too slow."), FrameDropCount - LastFramesDroppedCount, ChannelInfo.DeviceIndex);
+					}
+					LastFramesDroppedCount = FrameDropCount;
 				}
-				LastFramesDroppedCount = FrameDropCount;
 			}
 		}
 
@@ -180,6 +183,7 @@ UBlackmagicMediaCapture::UBlackmagicMediaCapture(const FObjectInitializer& Objec
 	: Super(ObjectInitializer)
 	, bWaitForSyncEvent(false)
 	, bEncodeTimecodeInTexel(false)
+	, bLogDropFrame(false)
 	, BlackmagicMediaOutputPixelFormat(EBlackmagicMediaOutputPixelFormat::PF_8BIT_YUV)
 	, bSavedIgnoreTextureAlpha(false)
 	, bIgnoreTextureAlphaChanged(false)
@@ -194,7 +198,7 @@ bool UBlackmagicMediaCapture::ValidateMediaOutput() const
 	UBlackmagicMediaOutput* BlackmagicMediaOutput = Cast<UBlackmagicMediaOutput>(MediaOutput);
 	if (!BlackmagicMediaOutput)
 	{
-		UE_LOG(LogBlackmagicMediaOutput, Error, TEXT("Can not start the capture. MediaSource's class is not supported."));
+		UE_LOG(LogBlackmagicMediaOutput, Error, TEXT("Can not start the capture. MediaOutput's class is not supported."));
 		return false;
 	}
 
@@ -203,21 +207,21 @@ bool UBlackmagicMediaCapture::ValidateMediaOutput() const
 
 bool UBlackmagicMediaCapture::CaptureSceneViewportImpl(TSharedPtr<FSceneViewport>& InSceneViewport)
 {
-	UBlackmagicMediaOutput* BlackmagicMediaSource = CastChecked<UBlackmagicMediaOutput>(MediaOutput);
-	bool bResult = InitBlackmagic(BlackmagicMediaSource);
+	UBlackmagicMediaOutput* BlackmagicMediaOutput = CastChecked<UBlackmagicMediaOutput>(MediaOutput);
+	bool bResult = InitBlackmagic(BlackmagicMediaOutput);
 	if (bResult)
 	{
 		ApplyViewportTextureAlpha(InSceneViewport);
-		BlackmagicMediaOutputPixelFormat = BlackmagicMediaSource->PixelFormat;
+		BlackmagicMediaOutputPixelFormat = BlackmagicMediaOutput->PixelFormat;
 	}
 	return bResult;
 }
 
 bool UBlackmagicMediaCapture::CaptureRenderTargetImpl(UTextureRenderTarget2D* InRenderTarget)
 {
-	UBlackmagicMediaOutput* BlackmagicMediaSource = CastChecked<UBlackmagicMediaOutput>(MediaOutput);
-	bool bResult = InitBlackmagic(BlackmagicMediaSource);
-	BlackmagicMediaOutputPixelFormat = BlackmagicMediaSource->PixelFormat;
+	UBlackmagicMediaOutput* BlackmagicMediaOutput = CastChecked<UBlackmagicMediaOutput>(MediaOutput);
+	bool bResult = InitBlackmagic(BlackmagicMediaOutput);
+	BlackmagicMediaOutputPixelFormat = BlackmagicMediaOutput->PixelFormat;
 	return bResult;
 }
 
@@ -268,8 +272,8 @@ void UBlackmagicMediaCapture::ApplyViewportTextureAlpha(TSharedPtr<FSceneViewpor
 		{
 			bSavedIgnoreTextureAlpha = Widget->GetIgnoreTextureAlpha();
 
-			UBlackmagicMediaOutput* BlackmagicMediaSource = CastChecked<UBlackmagicMediaOutput>(MediaOutput);
-			if (BlackmagicMediaSource->OutputConfiguration.OutputType == EMediaIOOutputType::FillAndKey)
+			UBlackmagicMediaOutput* BlackmagicMediaOutput = CastChecked<UBlackmagicMediaOutput>(MediaOutput);
+			if (BlackmagicMediaOutput->OutputConfiguration.OutputType == EMediaIOOutputType::FillAndKey)
 			{
 				if (bSavedIgnoreTextureAlpha)
 				{
@@ -317,6 +321,7 @@ bool UBlackmagicMediaCapture::InitBlackmagic(UBlackmagicMediaOutput* InBlackmagi
 	// Init general settings
 	bWaitForSyncEvent = InBlackmagicMediaOutput->bWaitForSyncEvent;
 	bEncodeTimecodeInTexel = InBlackmagicMediaOutput->bEncodeTimecodeInTexel;
+	bLogDropFrame = InBlackmagicMediaOutput->bLogDropFrame;
 	FrameRate = InBlackmagicMediaOutput->GetRequestedFrameRate();
 
 	// Init Device options
@@ -387,9 +392,10 @@ bool UBlackmagicMediaCapture::InitBlackmagic(UBlackmagicMediaOutput* InBlackmagi
 	}
 
 	ChannelOptions.bOutputKey = InBlackmagicMediaOutput->OutputConfiguration.OutputType == EMediaIOOutputType::FillAndKey;
-	ChannelOptions.NumberOfBuffers = FMath::Clamp(InBlackmagicMediaOutput->NumberOfBlackmagicBuffers, 2, 4);
+	ChannelOptions.NumberOfBuffers = FMath::Clamp(InBlackmagicMediaOutput->NumberOfBlackmagicBuffers, 3, 4);
 	ChannelOptions.bOutputVideo = true;
-	ChannelOptions.bOutputInterlacedFieldsTimecodeNeedToMatch = InBlackmagicMediaOutput->bInterlacedFieldsTimecodeNeedToMatch;
+	ChannelOptions.bOutputInterlacedFieldsTimecodeNeedToMatch = InBlackmagicMediaOutput->bInterlacedFieldsTimecodeNeedToMatch && InBlackmagicMediaOutput->OutputConfiguration.MediaConfiguration.MediaMode.Standard == EMediaIOStandardType::Interlaced && InBlackmagicMediaOutput->TimecodeFormat != EMediaIOTimecodeFormat::None;
+	ChannelOptions.bLogDropFrames = bLogDropFrame;
 
 	check(EventCallback == nullptr);
 	BlackmagicDesign::FChannelInfo ChannelInfo;
@@ -455,7 +461,7 @@ void UBlackmagicMediaCapture::OnFrameCaptured_RenderingThread(const FCaptureBase
 
 		if (bBlackmagicWritInputRawDataCmdEnable)
 		{
-			FString OutputFilename = "";
+			FString OutputFilename;
 			uint32 Stride = 0;
 
 			switch (BlackmagicMediaOutputPixelFormat)
@@ -463,18 +469,18 @@ void UBlackmagicMediaCapture::OnFrameCaptured_RenderingThread(const FCaptureBase
 			case EBlackmagicMediaOutputPixelFormat::PF_8BIT_YUV:
 				if (GetConversionOperation() == EMediaCaptureConversionOperation::RGBA8_TO_YUV_8BIT)
 				{
-					OutputFilename = "Blackmagic_Input_8_YUV";
+					OutputFilename = TEXT("Blackmagic_Input_8_YUV");
 					Stride = Width * 4;
 					break;
 				}
 				else
 				{
-					OutputFilename = "Blackmagic_Input_8_RGBA";
+					OutputFilename = TEXT("Blackmagic_Input_8_RGBA");
 					Stride = Width * 4;
 					break;
 				}
 			case EBlackmagicMediaOutputPixelFormat::PF_10BIT_YUV:
-				OutputFilename = "Blackmagic_Input_10_YUV";
+				OutputFilename = TEXT("Blackmagic_Input_10_YUV");
 				Stride = Width * 16;
 				break;
 			}
@@ -490,9 +496,9 @@ void UBlackmagicMediaCapture::OnFrameCaptured_RenderingThread(const FCaptureBase
 		Frame.Timecode = Timecode;
 		Frame.FrameIdentifier = InBaseData.SourceFrameNumberRenderThread;
 		const bool bSent = EventCallback->SendVideoFrameData(Frame);
-		if (!bSent)
+		if (bLogDropFrame && !bSent)
 		{
-			UE_LOG(LogBlackmagicMediaOutput, Error, TEXT("Frame couldn't be sent to Blackmagic device."));
+			UE_LOG(LogBlackmagicMediaOutput, Warning, TEXT("Frame couldn't be sent to Blackmagic device. Engine might be running faster than output."));
 		}
 
 		WaitForSync_RenderingThread();

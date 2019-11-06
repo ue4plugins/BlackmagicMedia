@@ -21,11 +21,15 @@
 #include "Engine/GameEngine.h"
 #include "Misc/App.h"
 #include "Slate/SceneViewport.h"
+#include "Stats/Stats2.h"
 
 #include "BlackmagicMediaSource.h"
 
 
 #define LOCTEXT_NAMESPACE "BlackmagicMediaPlayer"
+
+DECLARE_CYCLE_STAT(TEXT("Blackmagic MediaPlayer Process received frame"), STAT_Blackmagic_MediaPlayer_ProcessReceivedFrame, STATGROUP_Media);
+
 
 bool bBlackmagicWriteOutputRawDataCmdEnable = false;
 static FAutoConsoleCommand BlackmagicWriteOutputRawDataCmd(
@@ -161,6 +165,8 @@ namespace BlackmagicMediaPlayerHelpers
 
 		virtual void OnFrameReceived(const BlackmagicDesign::IInputEventCallback::FFrameReceivedInfo& InFrameInfo) override
 		{
+			SCOPE_CYCLE_COUNTER(STAT_Blackmagic_MediaPlayer_ProcessReceivedFrame);
+
 			FScopeLock Lock(&CallbackLock);
 
 			if (MediaPlayer == nullptr)
@@ -185,7 +191,7 @@ namespace BlackmagicMediaPlayerHelpers
 			}
 			bReceivedValidFrame = bReceivedValidFrame || InFrameInfo.bHasInputSource;
 
-			FTimespan DecodedTime = FTimespan::FromSeconds(FPlatformTime::Seconds());
+			FTimespan DecodedTime = FTimespan::FromSeconds(MediaPlayer->GetPlatformSeconds());
 			FTimespan DecodedTimeF2 = DecodedTime + FTimespan::FromSeconds(MediaPlayer->VideoFrameRate.AsInterval());
 
 			if (MediaState == EMediaState::Playing)
@@ -216,7 +222,7 @@ namespace BlackmagicMediaPlayerHelpers
 					PreviousTimecode = InFrameInfo.Timecode;
 					PrevousTimespan = TimecodeDecodedTime;
 
-					if (MediaPlayer->bIsTimecodeLogEnable)
+					if (MediaPlayer->IsTimecodeLogEnabled())
 					{
 						UE_LOG(LogBlackmagicMedia, Log, TEXT("Input '%s' has timecode : %02d:%02d:%02d:%02d"), *MediaPlayer->GetUrl()
 							, InFrameInfo.Timecode.Hours, InFrameInfo.Timecode.Minutes, InFrameInfo.Timecode.Seconds, InFrameInfo.Timecode.Frames);

@@ -52,7 +52,7 @@ public:
 	 * A smaller number is most likely to cause missed frame.
 	 * A bigger number is most likely to increase latency.
 	 */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "Output", meta = (ClampMin = 2, ClampMax = 4))
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "Output", meta = (UIMin = 3, UIMax = 4, ClampMin = 3, ClampMax = 4))
 	int32 NumberOfBlackmagicBuffers;
 
 	/**
@@ -60,7 +60,7 @@ public:
 	 * When creating a new Frame the 2 fields need to have the same timecode value.
 	 * The Engine's need a TimecodeProvider (or the default system clock) that is in sync with the generated fields.
 	 */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "Output", meta = (ClampMin = 1, ClampMax = 4))
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "Output")
 	bool bInterlacedFieldsTimecodeNeedToMatch;
 	
 	/** Try to maintain a the engine "Genlock" with the VSync signal. */
@@ -68,6 +68,11 @@ public:
 	bool bWaitForSyncEvent;
 
 public:
+
+	/** Log a warning when there's a drop frame. */
+	UPROPERTY(EditAnywhere, Category = "Debug")
+	bool bLogDropFrame;
+
 	/** Burn Frame Timecode on the output without any frame number clipping. */
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Debug", meta = (DisplayName = "Burn Frame Timecode"))
 	bool bEncodeTimecodeInTexel;

@@ -20,12 +20,16 @@ namespace BlackmagicCustomTimeStepHelpers
 	class FInputEventCallback : public BlackmagicDesign::IInputEventCallback
 	{
 	public:
-		FInputEventCallback(const BlackmagicDesign::FChannelInfo& InChannelInfo)
+		FInputEventCallback(const BlackmagicDesign::FChannelInfo& InChannelInfo, bool bInEnableOverrunDetection)
 			: RefCounter(0)
 			, ChannelInfo(InChannelInfo)
 			, State(ECustomTimeStepSynchronizationState::Closed)
 			, WaitSyncEvent(nullptr)
 			, bWaitedOnce(false)
+			, bEnableOverrunDetection(bInEnableOverrunDetection)
+			, bIsPreviousSyncCountValid(false)
+			, PreviousSyncCount(0)
+			, CurrentSyncCount(0)
 		{
 		}
 
@@ -68,10 +72,18 @@ namespace BlackmagicCustomTimeStepHelpers
 			{
 				uint32 NumberOfMilliseconds = 50;
 				bResult = WaitSyncEvent->Wait(NumberOfMilliseconds);
+				uint64 LocalCurrentSyncCount = CurrentSyncCount;
 				if (!bResult)
 				{
 					State = ECustomTimeStepSynchronizationState::Error;
 				}
+				else if (bEnableOverrunDetection && bIsPreviousSyncCountValid && LocalCurrentSyncCount != PreviousSyncCount+1)
+				{
+					UE_LOG(LogBlackmagicMedia, Warning, TEXT("The Engine couldn't run fast enough to keep up with the CustomTimeStep Sync. '%d' frame(s) was dropped."), CurrentSyncCount - PreviousSyncCount + 1);
+				}
+
+				bIsPreviousSyncCountValid = bResult;
+				PreviousSyncCount = LocalCurrentSyncCount;
 			}
 			return bResult;
 		}
@@ -120,6 +132,8 @@ namespace BlackmagicCustomTimeStepHelpers
 				State = ECustomTimeStepSynchronizationState::Synchronized;
 			}
 
+			CurrentSyncCount = InFrameInfo.FrameNumber;
+
 			if (WaitSyncEvent)
 			{
 				WaitSyncEvent->Trigger();
@@ -154,11 +168,17 @@ namespace BlackmagicCustomTimeStepHelpers
 
 		FEvent* WaitSyncEvent;
 		bool bWaitedOnce;
+
+		bool bEnableOverrunDetection;
+		bool bIsPreviousSyncCountValid;
+		uint64 PreviousSyncCount;
+		TAtomic<uint64> CurrentSyncCount;
 	};
 }
 
 UBlackmagicCustomTimeStep::UBlackmagicCustomTimeStep(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+	, bEnableOverrunDetection(false)
 	, InputEventCallback(nullptr)
 	, bWarnedAboutVSync(false)
 {
@@ -190,7 +210,7 @@ bool UBlackmagicCustomTimeStep::Initialize(class UEngine* InEngine)
 	BlackmagicDesign::FChannelInfo ChannelInfo;
 	ChannelInfo.DeviceIndex = MediaConfiguration.MediaConnection.Device.DeviceIdentifier;
 
-	InputEventCallback = new BlackmagicCustomTimeStepHelpers::FInputEventCallback(ChannelInfo);
+	InputEventCallback = new BlackmagicCustomTimeStepHelpers::FInputEventCallback(ChannelInfo, bEnableOverrunDetection);
 
 	BlackmagicDesign::FInputChannelOptions ChannelOptions;
 	ChannelOptions.CallbackPriority = 1;

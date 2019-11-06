@@ -24,6 +24,7 @@ namespace UnrealBuildTool.Rules
 					"MediaAssets",
 					"MediaIOCore",
 					"TimeManagement",
+					"RenderCore"
 				});
 
 			PrivateDependencyModuleNames.AddRange(
@@ -31,8 +32,7 @@ namespace UnrealBuildTool.Rules
 					"Blackmagic",
 					"Engine",
 					"MediaUtils",
-					"Projects",
-                    "UtilityShaders",
+					"Projects"
                 });
 
 			PrivateIncludePathModuleNames.AddRange(

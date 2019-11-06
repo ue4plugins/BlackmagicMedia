@@ -19,9 +19,10 @@ UBlackmagicMediaOutput::UBlackmagicMediaOutput(const FObjectInitializer& ObjectI
 	, TimecodeFormat(EMediaIOTimecodeFormat::LTC)
 	, PixelFormat(EBlackmagicMediaOutputPixelFormat::PF_8BIT_YUV)
 	, bInvertKeyOutput(false)
-	, NumberOfBlackmagicBuffers(2)
+	, NumberOfBlackmagicBuffers(3)
 	, bInterlacedFieldsTimecodeNeedToMatch(false)
 	, bWaitForSyncEvent(false)
+	, bLogDropFrame(false)
 	, bEncodeTimecodeInTexel(false)
 {
 }
@@ -161,6 +162,16 @@ bool UBlackmagicMediaOutput::CanEditChange(const UProperty* InProperty) const
 		return (PixelFormat == EBlackmagicMediaOutputPixelFormat::PF_8BIT_YUV && OutputConfiguration.OutputType == EMediaIOOutputType::FillAndKey);
 	}
 
+	if (InProperty->GetFName() == GET_MEMBER_NAME_CHECKED(UBlackmagicMediaOutput, bInterlacedFieldsTimecodeNeedToMatch))
+	{
+		bool bValid = false;
+		if (OutputConfiguration.IsValid() && TimecodeFormat != EMediaIOTimecodeFormat::None)
+		{
+			bValid = OutputConfiguration.MediaConfiguration.MediaMode.Standard == EMediaIOStandardType::Interlaced;
+		}
+		return bValid;
+	}
+
 	return true;
 }
 
@@ -171,6 +182,7 @@ void UBlackmagicMediaOutput::PostEditChangeChainProperty(struct FPropertyChanged
 		if (TimecodeFormat == EMediaIOTimecodeFormat::None)
 		{
 			bEncodeTimecodeInTexel = false;
+			bInterlacedFieldsTimecodeNeedToMatch = false;
 		}
 	}
 
@@ -179,6 +191,16 @@ void UBlackmagicMediaOutput::PostEditChangeChainProperty(struct FPropertyChanged
 		if (OutputConfiguration.OutputType == EMediaIOOutputType::Fill)
 		{
 			bInvertKeyOutput = false;
+		}
+
+
+		if (bInterlacedFieldsTimecodeNeedToMatch)
+		{
+			bInterlacedFieldsTimecodeNeedToMatch = false;
+			if (OutputConfiguration.IsValid() && TimecodeFormat != EMediaIOTimecodeFormat::None)
+			{
+				bInterlacedFieldsTimecodeNeedToMatch = OutputConfiguration.MediaConfiguration.MediaMode.Standard == EMediaIOStandardType::Interlaced;;
+			}
 		}
 	}
 

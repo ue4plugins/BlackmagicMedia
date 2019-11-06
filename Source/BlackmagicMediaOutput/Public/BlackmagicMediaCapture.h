@@ -57,6 +57,7 @@ private:
 	/** Option from MediaOutput */
 	bool bWaitForSyncEvent;
 	bool bEncodeTimecodeInTexel;
+	bool bLogDropFrame;
 	
 	/** MediaOutput cached value */
 	EBlackmagicMediaOutputPixelFormat BlackmagicMediaOutputPixelFormat;

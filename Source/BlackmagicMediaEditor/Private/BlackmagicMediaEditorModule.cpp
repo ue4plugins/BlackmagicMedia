@@ -27,7 +27,7 @@ public:
 
 	virtual void ShutdownModule() override
 	{
-		if (!UObjectInitialized() && !GIsRequestingExit)
+		if (!UObjectInitialized() && !IsEngineExitRequested())
 		{
 			UnregisterStyle();
 		}

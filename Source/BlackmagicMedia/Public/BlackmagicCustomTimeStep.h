@@ -42,6 +42,10 @@ public:
 	UPROPERTY(EditAnywhere, Category="Genlock", meta=(DisplayName="Configuration"))
 	FMediaIOConfiguration MediaConfiguration;
 
+	/** Enable mechanism to detect Engine loop overrunning the source */
+	UPROPERTY(EditAnywhere, Category="Genlock options", meta=(DisplayName="Display Dropped Frames Warning"))
+	bool bEnableOverrunDetection;
+
 private:
 	friend BlackmagicCustomTimeStepHelpers::FInputEventCallback;
 	BlackmagicCustomTimeStepHelpers::FInputEventCallback* InputEventCallback;

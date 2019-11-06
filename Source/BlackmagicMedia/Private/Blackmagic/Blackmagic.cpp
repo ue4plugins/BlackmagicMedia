@@ -96,7 +96,7 @@ void FBlackmagic::LogInfo(const TCHAR* InFormat, ...)
 	va_list Args;
 
 	va_start(Args, InFormat );
-	FCString::GetVarArgs(TempString, ARRAY_COUNT(TempString), InFormat, Args);
+	FCString::GetVarArgs(TempString, UE_ARRAY_COUNT(TempString), InFormat, Args);
 	va_end(Args);
 
 	UE_LOG(LogBlackmagicMedia, Log, TempString);
@@ -110,7 +110,7 @@ void FBlackmagic::LogWarning(const TCHAR* InFormat, ...)
 	va_list Args;
 
 	va_start(Args, InFormat );
-	FCString::GetVarArgs(TempString, ARRAY_COUNT(TempString), InFormat, Args);
+	FCString::GetVarArgs(TempString, UE_ARRAY_COUNT(TempString), InFormat, Args);
 	va_end(Args);
 
 	UE_LOG(LogBlackmagicMedia, Warning, TempString);
@@ -124,7 +124,7 @@ void FBlackmagic::LogError(const TCHAR* InFormat, ...)
 	va_list Args;
 
 	va_start(Args, InFormat );
-	FCString::GetVarArgs(TempString, ARRAY_COUNT(TempString), InFormat, Args);
+	FCString::GetVarArgs(TempString, UE_ARRAY_COUNT(TempString), InFormat, Args);
 	va_end(Args);
 
 	UE_LOG(LogBlackmagicMedia, Error, TempString);

@@ -30,8 +30,7 @@ public class Blackmagic : ModuleRules
 			}
 
 			PublicIncludePaths.Add(Path.Combine(SDKDir, "Include"));
-			PublicLibraryPaths.Add(LibPath);
-			PublicAdditionalLibraries.Add(LibraryName + ".lib");
+			PublicAdditionalLibraries.Add(Path.Combine(LibPath, LibraryName + ".lib"));
 
 			PublicDelayLoadDLLs.Add(LibraryName + ".dll");
 			RuntimeDependencies.Add(Path.Combine(LibPath, LibraryName + ".dll"));
