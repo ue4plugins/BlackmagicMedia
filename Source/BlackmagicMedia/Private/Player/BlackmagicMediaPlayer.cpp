@@ -245,15 +245,15 @@ namespace BlackmagicMediaPlayerHelpers
 					}
 					else
 					{
-						auto AudioSamle = MediaPlayer->AudioSamplePool->AcquireShared();
-						if (AudioSamle->Initialize(reinterpret_cast<int32*>(InFrameInfo.AudioBuffer)
+						auto AudioSample = MediaPlayer->AudioSamplePool->AcquireShared();
+						if (AudioSample->Initialize(reinterpret_cast<int32*>(InFrameInfo.AudioBuffer)
 							, InFrameInfo.AudioBufferSize / sizeof(int32)
 							, InFrameInfo.NumberOfAudioChannel
 							, InFrameInfo.AudioRate
 							, DecodedTime
 							, DecodedTimecode))
 						{
-							MediaPlayer->Samples->AddAudio(AudioSamle);
+							MediaPlayer->Samples->AddAudio(AudioSample);
 
 							LastBitsPerSample = sizeof(int32);
 							LastSampleRate = InFrameInfo.AudioRate;
